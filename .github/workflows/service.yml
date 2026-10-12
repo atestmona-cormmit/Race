@@ -1,0 +1,62 @@
+name: WOLF Event Bot
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: wolf-event-bot
+  cancel-in-progress: true
+
+jobs:
+  wolf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Download session from Google Drive
+        env:
+          WOLF: ${{ secrets.WOLF }}
+        run: |
+          if [ -z "$WOLF" ]; then
+            echo "❌ Secret WOLF is NOT available"
+            exit 1
+          fi
+          pip install gdown
+          gdown --fuzzy "$WOLF" -O wolf-profile.zip
+          rm -rf wolf-profile
+          unzip -q wolf-profile.zip
+          if [ ! -d wolf-profile ]; then
+            echo "❌ wolf-profile folder not found after unzip"
+            exit 1
+          fi
+          echo "✅ Session downloaded and extracted"
+
+      - name: Run WOLF Event Task
+        run: |
+          echo "🕐 Start: $(date)"
+          npm start
+          EXIT_CODE=$?
+          echo "🕐 End: $(date)"
+          exit "$EXIT_CODE"
+
+      - name: Final Cleanup
+        if: always()
+        run: |
+          pkill -TERM -f "node check-wolf.js" 2>/dev/null || true
+          sleep 2
+          pkill -KILL -f "node check-wolf.js" 2>/dev/null || true
+          rm -rf wolf-profile wolf-profile.zip
