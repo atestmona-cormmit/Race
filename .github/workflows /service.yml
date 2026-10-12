@@ -1,0 +1,89 @@
+name: WOLF Event Bot
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: wolf-event-bot
+  cancel-in-progress: true
+
+jobs:
+  wolf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: |
+          echo "========================================"
+          echo "📦 Installing dependencies"
+          echo "========================================"
+          npm install
+          echo "✅ Dependencies installed"
+
+      - name: Verify WOLF_TOKENS_PAT
+        env:
+          WOLF_TOKENS_PAT: ${{ secrets.WOLF_TOKENS_PAT }}
+        run: |
+          echo "========================================"
+          echo "🔐 Verifying WOLF_TOKENS_PAT"
+          echo "========================================"
+
+          if [ -z "$WOLF_TOKENS_PAT" ]; then
+            echo "❌ WOLF_TOKENS_PAT is NOT available"
+            exit 1
+          fi
+          echo "✅ WOLF_TOKENS_PAT is available"
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $WOLF_TOKENS_PAT" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/anaayaar-ops/ono/contents/tokens.json")
+
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Failed to access too/tokens.json: HTTP $STATUS"
+            exit 1
+          fi
+          echo "✅ Access to too/tokens.json confirmed"
+
+      - name: Run WOLF Event Task
+        env:
+          WOLF_TOKENS_PAT: ${{ secrets.WOLF_TOKENS_PAT }}
+        run: |
+          echo "========================================"
+          echo "🐺 WOLF EVENT BOT"
+          echo "📦 Tokens from: anaayaar-ops/too"
+          echo "========================================"
+          echo "🕐 Start: $(date)"
+          echo "========================================"
+
+          npm start
+          EXIT_CODE=$?
+
+          echo ""
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            echo "✅ WOLF EVENT TASK COMPLETED"
+          else
+            echo "❌ WOLF EVENT TASK FAILED (code $EXIT_CODE)"
+          fi
+          echo "🕐 End: $(date)"
+
+          exit "$EXIT_CODE"
+
+      - name: Final Cleanup
+        if: always()
+        run: |
+          echo "🧹 FINAL CLEANUP"
+          pkill -TERM -f "node check-wolf.js" 2>/dev/null || true
+          sleep 2
+          pkill -KILL -f "node check-wolf.js" 2>/dev/null || true
+          echo "✅ Final cleanup completed"
