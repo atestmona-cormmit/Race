@@ -1,0 +1,13 @@
+{
+  "name": "service-runner",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node check-wolf.js"
+  },
+  "dependencies": {
+    "sharp": "^0.34.3",
+    "socket.io-client": "^4.8.1",
+    "wolf.js": "2.7.10"
+  }
+}
